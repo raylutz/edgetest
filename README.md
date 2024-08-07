@@ -2,6 +2,9 @@
 
 This package provides utilities and tools to implement edge testing of python functions/methods.
 
+Note: This has been recently split from another repo and may need some adjustments for general-purpose
+use.
+
 Essentially, it creates test data during actual operation of your code. 
 Test data is collected only for unique input parameters of the code, up to the limit established.
 If the function is not fully covered per 'coverage' data, then it will add additional tests
