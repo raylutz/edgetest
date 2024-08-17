@@ -14,6 +14,8 @@ from pprint import pformat
 from functools import wraps
 from typing import Dict, Any, List, Callable, Tuple, Optional
 
+T_dods = Dict[str, Dict[str, str]]
+
 # non standard library imports are performed only if enabled, below.
 # import coverage
 # from utilities import pickledjson, args # utils, s3utils, 
@@ -31,9 +33,13 @@ class EdgeTestConfig:
         r"version:\'v\d+\.\d+\.\d+ \(\w{7}\)\'",        # Version pattern like 'v2.23.X (78a0796)'
         ]
 
-    enable_edge_tests = False
+    enable_edge_tests = False               # use .enable() to turn it on.
     
-    test_cases_folder = 'edge_test_cases'
+    test_cases_dirname = 'edge_test_cases'
+    
+    save_data_func = None                   # set this to data saving function    
+    load_data_func = None                   # set this to data restore function
+    save_data_subdir = None
     
     @classmethod
     def enable(cls):
@@ -64,7 +70,8 @@ def clean_vars(these_args):
     return these_vars
 
 
-def save_edge_tests(state:Optional[Any]=None):
+def save_edge_tests(state: Optional[Any]=None, save_specs: Optional[T_dods]=None):
+
     """
     Decorator for saving edge test cases.
 
@@ -78,6 +85,22 @@ def save_edge_tests(state:Optional[Any]=None):
     Args:
         state (dict, optional): if provided, this dict provides the name of the local state to be reproduced.
             save_edge_tests will fill in the value of the key provided with the value present when the function is called.
+        save_specs_dod (dods, optional): if provided, use alternative specs for saving/restoring data.
+            dods should have the following structure:
+        
+                {(arg):{'arg':(arg),'fmt':(fmt),'rtype':(fmt)}}
+                
+            where:
+                (arg) - the name of the argument, like 'image'
+                (fmt) - the desired format of the file to be saved, like '.png'
+                        generally, the extension including the dot.
+                (rtype) - the desired return type when the saved data is read back in during testing,
+                        such as 'image', 'daf', 'df' etc.
+            
+            Operation:
+                
+
+
 
     Returns:
         Creates test data at edge_test_cases/{module}/{function_name}/{hexdigest based on inputs}.json
@@ -124,19 +147,6 @@ def save_edge_tests(state:Optional[Any]=None):
             pre_args_copy = copy.deepcopy(my_args)
             pre_kwargs_copy = copy.deepcopy(kwargs)
             
-            # Save global variables
-            # global_vars = clean_vars(globals())
-           
-            # Initialize coverage
-            cov = coverage.Coverage()
-            cov.start()
-
-            result = func(*my_args, **kwargs)
-
-            # Stop and save coverage
-            cov.stop()
-            cov.save()
-
             func_def, docstring = capture_function_details(func)
             module_name = func.__module__
             func_dirpath = os.path.join(EdgeTestConfig.test_cases_folder, module_name, func_name)
@@ -173,6 +183,28 @@ def save_edge_tests(state:Optional[Any]=None):
             md5hash = hashlib.md5(flattened_data_no_result.encode("utf-8")).hexdigest()
             testcase_path = os.path.join(func_dirpath, f"{md5hash}.json")
                 
+            if save_specs:
+                for argname, argspec_da in save_specs.items():
+                    save_data_kwargs = EdgeTestConfig.save_data_starter_kwargs
+                    save_data_kwargs.extend(argspec_da)
+                    if argname in kwargs:
+                        save_data_kwargs['data_item'] = kwargs[argname]
+                        save_data_kwargs['name'] = f"{md5hash}_{argname}{argspec_da['fmt']}"
+                        EdgeTestConfig.save_data_func(**save_data_kwargs)
+            
+            # Save global variables
+            # global_vars = clean_vars(globals())
+           
+            # Initialize coverage
+            cov = coverage.Coverage()
+            cov.start()
+
+            result = func(*my_args, **kwargs)
+
+            # Stop and save coverage
+            cov.stop()
+            cov.save()
+
             # now add the results of the call.
             test_data['post_args']      = list(my_args)           # convert from tuple to list
             test_data['post_kwargs']    = kwargs
@@ -314,7 +346,7 @@ def apply_test_cases():
         
     for module_dirname in modules:
         
-        module_dirpath = os.path.join(EdgeTestConfig.test_cases_folder, module_dirname)
+        module_dirpath = os.path.join(EdgeTestConfig.test_cases_dirname, module_dirname)
         
         function_dirs = os.listdir(module_dirpath)
 
