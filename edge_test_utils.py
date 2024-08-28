@@ -86,7 +86,7 @@ def save_edge_tests(state: Optional[Any]=None, save_specs: Optional[T_dods]=None
         state (dict, optional): if provided, this dict provides the name of the local state to be reproduced.
             save_edge_tests will fill in the value of the key provided with the value present when the function is called.
         save_specs_dod (dods, optional): if provided, use alternative specs for saving/restoring data.
-            dods should have the following structure:
+            save_specs_dod should have the following structure:
         
                 {(arg):{'arg':(arg),'fmt':(fmt),'rtype':(fmt)}}
                 
@@ -108,7 +108,9 @@ def save_edge_tests(state: Optional[Any]=None, save_specs: Optional[T_dods]=None
         function: The decorated function.
 
     Example:
-        @edge_test_utils.save_edge_tests()
+        from edge_test_utils import save_edge_tests
+    
+        @save_edge_tests()
         def my_function(arg1, arg2):
             return arg1 + arg2
 
@@ -116,7 +118,7 @@ def save_edge_tests(state: Optional[Any]=None, save_specs: Optional[T_dods]=None
         
         # if args.argsdict is used inside the function, this state must be established.
         
-        @edge_test_utils.save_edge_tests(state={'args.argsdict': None})
+        @save_edge_tests(state={'args.argsdict': None})
         def my_function(arg1, arg2):
             return arg1 + arg2 + args.argsdict['value']
             
